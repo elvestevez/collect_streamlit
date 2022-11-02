@@ -96,7 +96,6 @@ def get_api_incomes_aeat(year):
     return data, metadata
 
 # get years incomes AEAT
-@st.cache(show_spinner=False)
 def get_api_incomes_aeat_years():
     url = URL_API + f'/income-aeat/years'
     #df = pd.read_json(url)
@@ -115,7 +114,6 @@ def get_api_incomes_aeat_years():
         return list_years
 
 # get years incomes INE
-@st.cache(show_spinner=False)
 def get_api_incomes_ine_years():
     url = URL_API + f'/income-ine/years'
     #df = pd.read_json(url)
@@ -134,7 +132,6 @@ def get_api_incomes_ine_years():
         return list_years
 
 # get years population INE
-@st.cache(show_spinner=False)
 def get_api_population_ine_years():
     url = URL_API + f'/population-ine/years'
     #df = pd.read_json(url)
