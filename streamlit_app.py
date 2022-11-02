@@ -59,7 +59,7 @@ def get_api_indicators_incomes():
     return data, metadata
 
 # get population INE
-@st.cache(show_spinner=False)
+#@st.cache(show_spinner=False)
 def get_api_population_ine(year, age='yes'):
     if age == OPTION_NO:
         age = 'no'
@@ -74,7 +74,7 @@ def get_api_population_ine(year, age='yes'):
     return data, metadata
 
 # get incomes INE
-@st.cache(show_spinner=False)
+#@st.cache(show_spinner=False)
 def get_api_incomes_ine(year):
     url = URL_API + f'/income-ine/cities/year/{year}'
     #df = pd.read_json(url)
@@ -85,7 +85,7 @@ def get_api_incomes_ine(year):
     return data, metadata
 
 # get incomes AEAT
-@st.cache(show_spinner=False)
+#@st.cache(show_spinner=False)
 def get_api_incomes_aeat(year):
     url = URL_API + f'/income-aeat/cities/year/{year}'
     #df = pd.read_json(url)
