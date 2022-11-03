@@ -1,6 +1,7 @@
 import streamlit as st
 from PIL import Image
 import time
+import configparser
 from urllib.request import urlopen
 import json
 import pandas as pd
@@ -10,21 +11,29 @@ import plotly.graph_objects as go
 
 
 ICON_PATH = './img/icon.png'
-CONFIG_FILE = 'datatype.properties'
 OPTION_YES = 'Yes'
 OPTION_NO = 'No'
 ENCODE = 'utf-8'
-#URL_API = 'http://localhost:9080'
-URL_API = 'https://datacollect-api.herokuapp.com'
+CONFIG_FILE = './web.properties'
 type_income_aeat = 'income_aeat'
 type_income_ine = 'income_ine'
 type_population_ine = 'population_ine'
 
 
+
+def get_url_api():
+    # get properties file
+    url = ''
+    config = configparser.ConfigParser()
+    config.read(CONFIG_FILE)
+    if config.has_option('WEB_APP', 'URL_API'):
+        url = config.get('WEB_APP', 'URL_API')
+    return url
+
 # get dimensions
 def get_api_cities():
-    #df = pd.read_json(URL_API + '/cities')
-    response = urlopen(URL_API + '/cities')
+    #df = pd.read_json(get_url_api() + '/cities')
+    response = urlopen(get_url_api() + '/cities')
     data_json = json.loads(response.read())
     df = pd.DataFrame(data_json['data'])
     data = df['City']
@@ -32,8 +41,8 @@ def get_api_cities():
     return data, metadata
 
 def get_api_provinces():
-    #df = pd.read_json(URL_API + '/provinces')
-    response = urlopen(URL_API + '/provinces')
+    #df = pd.read_json(get_url_api() + '/provinces')
+    response = urlopen(get_url_api() + '/provinces')
     data_json = json.loads(response.read())
     df = pd.DataFrame(data_json['data'])
     data = df['Province']
@@ -41,8 +50,8 @@ def get_api_provinces():
     return data, metadata
 
 def get_api_regions():
-    #df = pd.read_json(URL_API + '/regions')
-    response = urlopen(URL_API + '/regions')
+    #df = pd.read_json(get_url_api() + '/regions')
+    response = urlopen(get_url_api() + '/regions')
     data_json = json.loads(response.read())
     df = pd.DataFrame(data_json['data'])
     data = df['Region']
@@ -50,8 +59,8 @@ def get_api_regions():
     return data, metadata
 
 def get_api_indicators_incomes():
-    #df = pd.read_json(URL_API + '/indicators-income-ine')
-    response = urlopen(URL_API + '/indicator-income-ine')
+    #df = pd.read_json(get_url_api() + '/indicators-income-ine')
+    response = urlopen(get_url_api() + '/indicator-income-ine')
     data_json = json.loads(response.read())
     df = pd.DataFrame(data_json['data'])
     data = df['Name_indicator']
@@ -65,7 +74,7 @@ def get_api_population_ine(year, age='yes'):
         age = 'no'
     if age == OPTION_YES:
         age = 'yes'
-    url = URL_API + f'/population-ine/cities/year/{year}?age={age}'
+    url = get_url_api() + f'/population-ine/cities/year/{year}?age={age}'
     #df = pd.read_json(url)
     response = urlopen(url)
     data_json = json.loads(response.read())
@@ -76,7 +85,7 @@ def get_api_population_ine(year, age='yes'):
 # get incomes INE
 #@st.cache(show_spinner=False)
 def get_api_incomes_ine(year):
-    url = URL_API + f'/income-ine/cities/year/{year}'
+    url = get_url_api() + f'/income-ine/cities/year/{year}'
     #df = pd.read_json(url)
     response = urlopen(url)
     data_json = json.loads(response.read())
@@ -87,7 +96,7 @@ def get_api_incomes_ine(year):
 # get incomes AEAT
 #@st.cache(show_spinner=False)
 def get_api_incomes_aeat(year):
-    url = URL_API + f'/income-aeat/cities/year/{year}'
+    url = get_url_api() + f'/income-aeat/cities/year/{year}'
     #df = pd.read_json(url)
     response = urlopen(url)
     data_json = json.loads(response.read())
@@ -97,7 +106,7 @@ def get_api_incomes_aeat(year):
 
 # get years incomes AEAT
 def get_api_incomes_aeat_years():
-    url = URL_API + f'/income-aeat/years'
+    url = get_url_api() + f'/income-aeat/years'
     #df = pd.read_json(url)
     response = urlopen(url)
     data_json = json.loads(response.read())
@@ -115,7 +124,7 @@ def get_api_incomes_aeat_years():
 
 # get years incomes INE
 def get_api_incomes_ine_years():
-    url = URL_API + f'/income-ine/years'
+    url = get_url_api() + f'/income-ine/years'
     #df = pd.read_json(url)
     response = urlopen(url)
     data_json = json.loads(response.read())
@@ -133,7 +142,7 @@ def get_api_incomes_ine_years():
 
 # get years population INE
 def get_api_population_ine_years():
-    url = URL_API + f'/population-ine/years'
+    url = get_url_api() + f'/population-ine/years'
     #df = pd.read_json(url)
     response = urlopen(url)
     data_json = json.loads(response.read())
