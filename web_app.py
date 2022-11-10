@@ -18,6 +18,8 @@ CONFIG_FILE = './web.properties'
 type_income_aeat = 'income_aeat'
 type_income_ine = 'income_ine'
 type_population_ine = 'population_ine'
+type_gov_city = 'gov_city'
+type_gov_region = 'gov_region'
 
 
 
@@ -74,7 +76,7 @@ def get_api_population_ine(year, age='yes'):
         age = 'no'
     if age == OPTION_YES:
         age = 'yes'
-    url = get_url_api() + f'/population-ine/cities/year/{year}?age={age}'
+    url = get_url_api() + f'/population-ine/cities?year={year}&age={age}'
     #df = pd.read_json(url)
     response = urlopen(url)
     data_json = json.loads(response.read())
@@ -85,7 +87,7 @@ def get_api_population_ine(year, age='yes'):
 # get incomes INE
 #@st.cache(show_spinner=False)
 def get_api_incomes_ine(year):
-    url = get_url_api() + f'/income-ine/cities/year/{year}'
+    url = get_url_api() + f'/income-ine/cities?year={year}'
     #df = pd.read_json(url)
     response = urlopen(url)
     data_json = json.loads(response.read())
@@ -96,7 +98,7 @@ def get_api_incomes_ine(year):
 # get incomes AEAT
 #@st.cache(show_spinner=False)
 def get_api_incomes_aeat(year):
-    url = get_url_api() + f'/income-aeat/cities/year/{year}'
+    url = get_url_api() + f'/income-aeat/cities?year={year}'
     #df = pd.read_json(url)
     response = urlopen(url)
     data_json = json.loads(response.read())
@@ -160,28 +162,53 @@ def get_api_population_ine_years():
 
 
 
+# get government cities
+#@st.cache(show_spinner=False)
+def get_api_government_cities(year):
+    url = get_url_api() + f'/government/cities?year={year}'
+    #df = pd.read_json(url)
+    response = urlopen(url)
+    data_json = json.loads(response.read())
+    data = pd.DataFrame(data_json['data'])
+    metadata = df = pd.DataFrame(data_json['metadata'])
+    return data, metadata
+
+# get government regions
+#@st.cache(show_spinner=False)
+def get_api_government_regions(year):
+    url = get_url_api() + f'/government/regions?year={year}'
+    #df = pd.read_json(url)
+    response = urlopen(url)
+    data_json = json.loads(response.read())
+    data = pd.DataFrame(data_json['data'])
+    metadata = df = pd.DataFrame(data_json['metadata'])
+    return data, metadata
+
+# get years government
+def get_api_government_years():
+    url = get_url_api() + f'/government/years'
+    #df = pd.read_json(url)
+    response = urlopen(url)
+    data_json = json.loads(response.read())
+    df = pd.DataFrame(data_json['data'])
+    if df.empty:
+        #return 0, 1
+        return []
+    else:
+        list_years = list(df['Year'])
+        #min_y = min(list_years)
+        #max_y = max(list_years)
+        #return min_y, max_y
+        list_years.sort(reverse=True)
+        return list_years
+
+
+
 # export to csv
 def export_to_csv(df, encode):
     return df.to_csv(index=False, sep=";").encode(encode)
 
 
-
-# build graph income aeat
-def build_graph_incomes_aeat(df):
-    list_fig = []
-    # graph 1
-    fig = make_subplots(rows=1, cols=2, subplot_titles=('Top 5 cities',  'Bottom 5 cities'))
-    fig.add_trace(go.Bar(x=df.nlargest(5, 'Avg_gross_income')['City'], y=df.nlargest(5, 'Avg_gross_income')['Avg_gross_income']),
-                  row=1, col=1
-    )
-    fig.add_trace(go.Bar(x=df.nsmallest(5, 'Avg_gross_income')['City'], y=df.nsmallest(5, 'Avg_gross_income')['Avg_gross_income']),
-                  row=1, col=2
-    )
-    fig.update_layout(height=400, width=800, showlegend=False)
-    fig.update_xaxes(tickangle=45)
-    list_fig.append(fig)
-
-    return list_fig
 
 # calculate age groups population
 def gr_age_population(df):
@@ -472,6 +499,96 @@ def build_graph_incomes_ine(df):
 
     return list_fig
 
+# build graph income aeat
+def build_graph_incomes_aeat(df):
+    list_fig = []
+    # graph 1
+    data = df.loc[(df['Population'] > 1000)]
+    fig = make_subplots(rows=1, 
+                        cols=2,
+                        subplot_titles=('Top cities (population >1000)', 'Bottom cities (population >1000)'))
+    fig.add_trace(go.Bar(x=data.sort_values(by='Avg_net_income', ascending=False).head(5)['City'], 
+                         y=data.sort_values(by='Avg_net_income', ascending=False).head(5)['Avg_net_income']),
+                         row=1, col=1)
+    fig.add_trace(go.Bar(x=data.sort_values(by='Avg_net_income', ascending=False).tail(5)['City'], 
+                         y=data.sort_values(by='Avg_net_income', ascending=False).tail(5)['Avg_net_income']),
+                         row=1, col=2)
+    fig.update_layout(height=400, 
+                      width=800, 
+                      showlegend=False, 
+                      title_text='Average net income (EUR)', title_x=0.5)
+    fig.update_yaxes(range=[0, 65000])
+    fig.update_xaxes(tickangle=45)
+    list_fig.append(fig)
+    
+    # graph 2
+    data_loc = df.loc[df['Id_city'] == data.nlargest(1, 'Avg_net_income').iloc[0]['Id_city']]
+    data = data_loc.copy()
+    data.rename(columns={'Avg_net_income': 'Net income', 'Avg_gross_income': 'Gross income'}, inplace=True)
+    fig = px.bar(data,
+                 x='City', 
+                 y=['Net income', 'Gross income'],
+                 barmode='group')
+    fig.update_layout(height=400, 
+                      width=800, 
+                      title_text='Top city (population >1000)', 
+                      legend_title_text='Avg net/gross income (EUR)')
+    fig.update_yaxes(title='EUR')
+    list_fig.append(fig)
+
+    return list_fig
+
+# build graph government region
+def build_graph_government_region(df):
+    list_fig = []
+    # graph 1
+    data = df.groupby(by='Government')[['Government']].count().rename(columns={'Government': 'Count'}).reset_index().sort_values(by='Count', ascending=False)
+    fig = px.bar(data,
+                 x='Government', 
+                 y='Count')
+    fig.update_layout(height=500, 
+                      width=800, 
+                      title_text='Government in regions', title_x=0.5)
+    fig.update_yaxes(title='Total')
+    fig.update_xaxes(title='')
+    list_fig.append(fig)
+    
+    return list_fig
+
+# build graph government city
+def build_graph_government_city(df):
+    list_fig = []
+    # graph 1
+    data = df.groupby(by='Government')[['Government']].count().rename(columns={'Government': 'Count'}).reset_index().sort_values(by='Count', ascending=False).head(10)
+    fig = px.bar(data,
+                 x='Government', 
+                 y='Count')
+    fig.update_layout(height=500, 
+                      width=800, 
+                      title_text='Government in cities', title_x=0.5)
+    fig.update_yaxes(title='Total')
+    fig.update_xaxes(title='')
+    list_fig.append(fig)
+    
+    return list_fig
+
+# build graph government region
+def build_graph_government_region(df):
+    list_fig = []
+    # graph 1
+    data = df.groupby(by='Government')[['Government']].count().rename(columns={'Government': 'Count'}).reset_index().sort_values(by='Count', ascending=False)
+    fig = px.bar(data,
+                 x='Government', 
+                 y='Count')
+    fig.update_layout(height=500, 
+                      width=800, 
+                      title_text='Government in regions', title_x=0.5)
+    fig.update_yaxes(title='Total')
+    fig.update_xaxes(title='')
+    list_fig.append(fig)
+    
+    return list_fig
+
 # get graph
 def get_plot(type, df, selected_age=OPTION_YES):
     list_fig = []
@@ -481,10 +598,14 @@ def get_plot(type, df, selected_age=OPTION_YES):
     else:
         if type == type_population_ine:
             list_fig = build_graph_population_ine(df, selected_age)
-        elif type ==type_income_ine:
+        elif type == type_income_ine:
             list_fig = build_graph_incomes_ine(df)
-        elif type ==type_income_aeat:
+        elif type == type_income_aeat:
             list_fig = build_graph_incomes_aeat(df)
+        elif type == type_gov_region:
+            list_fig = build_graph_government_region(df)
+        elif type == type_gov_city:
+            list_fig = build_graph_government_city(df)
         else:
             fig = make_subplots(rows=1, cols=1)
             list_fig.append(fig)
@@ -494,12 +615,12 @@ def get_plot(type, df, selected_age=OPTION_YES):
 
 # get url tableau
 def get_url_tableau(type):
-    if type == type_income_aeat:
-        url = ''
-    elif type == type_income_ine:
+    if type == type_income_ine:
         url = 'https://public.tableau.com/app/profile/elvira8700/viz/IncomeINE/IncomeINE'
     elif type == type_population_ine:
         url = 'https://public.tableau.com/app/profile/elvira8700/viz/populationINE/Population'
+    elif type == type_income_aeat:
+        url = 'https://public.tableau.com/app/profile/elvira8700/viz/IncomeAEAT/IncomeAEAT'
     else:
         url = ''
     return url
@@ -545,8 +666,6 @@ def play_population_ine():
 
 
     # options
-    #min_y_p, max_y_p = get_api_population_ine_years()
-    #selected_year_p = st.slider('Year: ', min_value=min_y_p, max_value=max_y_p, key='year_pop_ine')
     list_years_pop_i = get_api_population_ine_years()
     selected_year_p = st.radio('Year: ', list_years_pop_i, key='year_pop_ine', horizontal=True)
     #selected_age = st.radio('By age:', [OPTION_NO, OPTION_YES])
@@ -586,115 +705,166 @@ def play_population_ine():
             st.plotly_chart(gr_pop, use_container_width=True)
         # url tableau
         url_tab_p = get_url_tableau(type_population_ine)
-        st.write(f'For more visualizations, you can view the [Tableau Dashboard]({url_tab_p})')
+        if url_tab_p != '':
+            st.write(f'For more visualizations, you can view the [Tableau Dashboard]({url_tab_p})')
         # component tableau
         #html_tab_p = get_html_tableau(type_population_ine)
         #components.html(html_tab_p)
 
 
-# Income INE collect
-def play_income_ine():
+# Income INE AEAT collect
+def play_income_ine_aeat():
     # header
     st.header('Income in Spain')
     st.write('Get income distribution by city')
-    st.markdown('Source data [Instituto Nacional de Estadística](https://www.ine.es/)')
     
     # options
-    #min_y_i, max_y_i = get_api_incomes_ine_years()
-    #selected_year_i = st.slider('Year: ', min_value=min_y_i, max_value=max_y_i, key='year_incomes_ine')
-    list_years_in_i = get_api_incomes_ine_years()
-    selected_year_i = st.radio('Year: ', list_years_in_i, key='year_in_ine', horizontal=True)
+    source_i = st.radio('Source: ', ['INE', 'AEAT'], key='source_ine', horizontal=True)
+    if source_i == 'INE':
+        st.markdown('Source data [Instituto Nacional de Estadística](https://www.ine.es/)')
+    if source_i == 'AEAT':
+        st.markdown('Source data [Agencia Estatal de Administración Tributaria](https://sede.agenciatributaria.gob.es/)')
+
+    if source_i == 'INE':
+        list_years_in = get_api_incomes_ine_years()
+    if source_i == 'AEAT':
+        list_years_in = get_api_incomes_aeat_years()
+    selected_year_i = st.radio('Year: ', list_years_in, key='year_in_ine', horizontal=True)
     
     # get data
     with st.spinner('Loading...'):
-        df_incomes_ine, metadata_incomes_ine = get_api_incomes_ine(selected_year_i)
+        if source_i == 'INE':
+            df_incomes, metadata_incomes = get_api_incomes_ine(selected_year_i)
+        if source_i == 'AEAT':
+            df_incomes, metadata_incomes = get_api_incomes_aeat(selected_year_i)
+        
 
-        f_csv = export_to_csv(df_incomes_ine, ENCODE)
+        f_csv = export_to_csv(df_incomes, ENCODE)
 
         # download
-        st.download_button(
-            label="Download data as CSV",
-            data=f_csv,
-            file_name=f'incomes_INE_{selected_year_i}.csv',
-            mime='text/csv'
-        )
-
+        if source_i == 'INE':
+            st.download_button(
+                label="Download data as CSV",
+                data=f_csv,
+                file_name=f'incomes_INE_{selected_year_i}.csv',
+                mime='text/csv'
+            )
+        if source_i == 'AEAT':
+            st.download_button(
+                label="Download data as CSV",
+                data=f_csv,
+                file_name=f'incomes_AEAT_{selected_year_i}.csv',
+                mime='text/csv'
+            )
+        
         # datatype
         st.subheader('Data description')
-        st.write(f'Number of rows: ', len(df_incomes_ine))
-        st.write(f'Number of columns: ', len(df_incomes_ine.columns))
-        write_datatype(metadata_incomes_ine)
+        st.write(f'Number of rows: ', len(df_incomes))
+        st.write(f'Number of columns: ', len(df_incomes.columns))
+        write_datatype(metadata_incomes)
         #st.markdown(text_datatype)
 
         # data
         st.subheader('Data sample')
         st.write('First 5 rows')
-        st.write(df_incomes_ine.head(5))
+        st.write(df_incomes.head(5))
 
         # dashboard
         st.subheader('Data overview')
         # plot
-        plots_in_i = get_plot(type_income_ine, df_incomes_ine)
-        for gr_in_i in plots_in_i:
-            st.plotly_chart(gr_in_i, use_container_width=True)
+        if source_i == 'INE':
+            plots_in_i = get_plot(type_income_ine, df_incomes)
+            for gr_in_i in plots_in_i:
+                st.plotly_chart(gr_in_i, use_container_width=True)
+        if source_i == 'AEAT':
+            plots_in_a = get_plot(type_income_aeat, df_incomes)
+            for gr_in_a in plots_in_a:
+                st.plotly_chart(gr_in_a, use_container_width=True)
         # url tableau
-        url_tab_i = get_url_tableau(type_income_ine)
-        st.write(f'For more visualizations, you can view the [Tableau Dashboard]({url_tab_i})')
-        # component tableau
-        #html_tab_i = get_html_tableau(type_income_ine)
-        #components.html(html_tab_i)
-    
-# Income AEAT collect
-def play_income_aeat():
-    # header
-    st.header('Income in Spain')
-    st.write('Get income distribution by city')
-    st.markdown('Source data [Agencia Estatal de Administración Tributaria](https://sede.agenciatributaria.gob.es/)')
+        if source_i == 'INE':
+            url_tab_i = get_url_tableau(type_income_ine)
+            if url_tab_i != '':
+                st.write(f'For more visualizations, you can view the [Tableau Dashboard]({url_tab_i})')
+        if source_i == 'AEAT':
+            url_tab_ia = get_url_tableau(type_income_aeat)
+            if url_tab_ia != '':
+                st.write(f'For more visualizations, you can view the [Tableau Dashboard]({url_tab_ia})')
 
+
+# government
+def play_government():
+    # header
+    st.header('Government in Spain')
+    st.write('Get government by city and region')
+    
     # options
-    #min_y_i_aeat, max_y_i_aeat = get_api_incomes_aeat_years()
-    #selected_year_i_aeat = st.slider('Year: ', min_value=min_y_i_aeat, max_value=max_y_i_aeat, key='year_incomes_aeat')
-    list_years_in_aeat = get_api_incomes_aeat_years()
-    selected_year_i_aeat = st.radio('Year: ', list_years_in_aeat, key='year_in_aeat', horizontal=True)
+    level_g = st.radio('Level: ', ['Region', 'City'], key='level_gov', horizontal=True)
+    if level_g == 'City':
+        st.markdown('Source data [Ministerio política territorial](https://www.mptfp.gob.es/)')
+    if level_g == 'Region':
+        st.markdown('Source data [Ministerio política territorial](https://www.mptfp.gob.es/)')
+
+    list_years_g = get_api_government_years()
+    selected_year_g = st.radio('Year: ', list_years_g, key='year_gov', horizontal=True)
     
     # get data
     with st.spinner('Loading...'):
-        df_incomes_aeat, metadata_incomes_aeat = get_api_incomes_aeat(selected_year_i_aeat)
+        if level_g == 'City':
+            df_government, metadata_government = get_api_government_cities(selected_year_g)
+        if level_g == 'Region':
+            df_government, metadata_government = get_api_government_regions(selected_year_g)
+        
 
-        f_csv = export_to_csv(df_incomes_aeat, ENCODE)
+        f_csv = export_to_csv(df_government, ENCODE)
 
         # download
-        st.download_button(
-            label="Download data as CSV",
-            data=f_csv,
-            file_name=f'incomes_AEAT_{selected_year_i_aeat}.csv',
-            mime='text/csv'
-        )
-
+        if level_g == 'City':
+            st.download_button(
+                label="Download data as CSV",
+                data=f_csv,
+                file_name=f'gov_cities_{selected_year_g}.csv',
+                mime='text/csv'
+            )
+        if level_g == 'Region':
+            st.download_button(
+                label="Download data as CSV",
+                data=f_csv,
+                file_name=f'gov_regions_{selected_year_g}.csv',
+                mime='text/csv'
+            )
+        
         # datatype
         st.subheader('Data description')
-        st.write(f'Number of rows: ', len(df_incomes_aeat))
-        st.write(f'Number of columns: ', len(df_incomes_aeat.columns))
-        write_datatype(metadata_incomes_aeat)
+        st.write(f'Number of rows: ', len(df_government))
+        st.write(f'Number of columns: ', len(df_government.columns))
+        write_datatype(metadata_government)
         #st.markdown(text_datatype)
 
         # data
         st.subheader('Data sample')
         st.write('First 5 rows')
-        st.write(df_incomes_aeat.head(5))
+        st.write(df_government.head(5))
 
         # dashboard
         st.subheader('Data overview')
         # plot
-        plots_in_a = get_plot(type_income_aeat, df_incomes_aeat)
-        for gr_in_a in plots_in_a:
-            st.plotly_chart(gr_in_a, use_container_width=True)
+        if level_g == 'City':
+            plots_in_i = get_plot(type_gov_city, df_government)
+            for gr_in_i in plots_in_i:
+                st.plotly_chart(gr_in_i, use_container_width=True)
+        if level_g == 'Region':
+            plots_in_a = get_plot(type_gov_region, df_government)
+            for gr_in_a in plots_in_a:
+                st.plotly_chart(gr_in_a, use_container_width=True)
         # url tableau
-        url_tab_ia = get_url_tableau(type_income_aeat)
-        st.write(f'For more visualizations, you can view the [Tableau Dashboard]({url_tab_ia})')
-        # component tableau
-        #html_tab_ia = get_html_tableau(type_income_aeat)
-        #components.html(html_tab_ia)
+        if level_g == 'City':
+            url_tab_gc = get_url_tableau(type_gov_city)
+            if url_tab_gc != '':
+                st.write(f'For more visualizations, you can view the [Tableau Dashboard]({url_tab_gc})')
+        if level_g == 'Region':
+            url_tab_gr = get_url_tableau(type_gov_region)
+            if url_tab_gr != '':
+                st.write(f'For more visualizations, you can view the [Tableau Dashboard]({url_tab_gr})')
 
 
 
@@ -715,13 +885,13 @@ st.text('')
 
 
 
-tab_pop_ine, tab_income_ine, tab_income_aeat = st.tabs(['Population INE', 'Income INE', 'Income AEAT'])
+tab_pop, tab_income, tab_gov = st.tabs(['Population', 'Income', 'Government'])
 
-with tab_pop_ine:
+with tab_pop:
    play_population_ine()
 
-with tab_income_ine:
-   play_income_ine()
+with tab_income:
+   play_income_ine_aeat()
 
-with tab_income_aeat:
-   play_income_aeat()
+with tab_gov:
+   play_government()
